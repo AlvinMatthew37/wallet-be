@@ -1,12 +1,10 @@
 import { VoucherRepository } from "../repositories/voucher-repository";
 import { VoucherService } from "../services/voucher-service";
-import { VoucherController } from "../controllers/voucher-controller";
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 import { z } from "zod";
 
 const voucherRepo = new VoucherRepository();
 const voucherService = new VoucherService(voucherRepo);
-const voucherController = new VoucherController(voucherService);
 
 const router = new OpenAPIHono();
 
@@ -38,7 +36,7 @@ router.openapi(
     },
     tags: ["Vouchers"],
   }),
-  voucherController.getAvailableCount as any
+  voucherService.getAvailableCount as any
 );
 
 export default router;

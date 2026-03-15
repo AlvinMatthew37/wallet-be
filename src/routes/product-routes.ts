@@ -1,5 +1,3 @@
-import { Hono } from "hono";
-import { ProductController } from "../controllers/product-controller";
 import { ProductService } from "../services/product-service";
 import { ProductRepository } from "../repositories/product-repository";
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
@@ -8,7 +6,6 @@ import { z } from "zod";
 
 const productRepo = new ProductRepository();
 const productService = new ProductService(productRepo);
-const productController = new ProductController(productService);
 
 const router = new OpenAPIHono();
 
@@ -29,7 +26,7 @@ router.openapi(
     },
     tags: ["Products"],
   }),
-  productController.getAllProducts as any
+  productService.getAllProducts as any
 );
 
 router.openapi(
@@ -56,7 +53,7 @@ router.openapi(
     },
     tags: ["Products"],
   }),
-  productController.getProductBySlug as any
+  productService.getProductBySlug as any
 );
 
 export default router;
