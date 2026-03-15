@@ -1,0 +1,47 @@
+-- Seed Data for Wallet-app
+-- This script uses CTEs to ensure IDs are correctly mapped between tables.
+
+WITH 
+  -- 1. Insert Products and capture their IDs
+  p AS (
+    INSERT INTO products (name, slug, description, image_url) VALUES
+    ('Steam Wallet IDR', 'steam-wallet-idr', 'Top up your Steam Wallet with IDR gift cards.', 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Steam_icon_logo.svg/512px-Steam_icon_logo.svg.png'),
+    ('Mobile Legends Diamonds', 'mobile-legends-diamonds', 'Get Diamonds for Mobile Legends: Bang Bang.', 'https://m.mobilelegends.com/static/images/index/logo.png')
+    RETURNING id, slug
+  ),
+  
+  -- 2. Insert Product Variants using the captured Product IDs
+  v AS (
+    INSERT INTO product_variants (product_id, name, price)
+    SELECT p.id, t.name, t.price
+    FROM p, (VALUES 
+      ('steam-wallet-idr', '60.000 Voucher', 60000.00),
+      ('steam-wallet-idr', '90.000 Voucher', 90000.00),
+      ('steam-wallet-idr', '120.000 Voucher', 120000.00),
+      ('steam-wallet-idr', '250.000 Voucher', 250000.00),
+      ('mobile-legends-diamonds', '86 Diamonds', 20000.00),
+      ('mobile-legends-diamonds', '172 Diamonds', 40000.00)
+    ) AS t(slug, name, price)
+    WHERE p.slug = t.slug
+    RETURNING id, name, (SELECT slug FROM p WHERE p.id = product_id) as product_slug
+  )
+
+-- 3. Insert Vouchers using the captured Variant IDs
+INSERT INTO vouchers (product_variant_id, product_slug, variant_name, code, status)
+SELECT v.id, v.product_slug, v.name, t.code, 'available'
+FROM v, (VALUES
+  ('60.000 Voucher', 'STEAM-60K-AAA-111'),
+  ('60.000 Voucher', 'STEAM-60K-BBB-222'),
+  ('60.000 Voucher', 'STEAM-60K-CCC-333'),
+  ('90.000 Voucher', 'STEAM-90K-XXX-111'),
+  ('90.000 Voucher', 'STEAM-90K-YYY-222'),
+  ('90.000 Voucher', 'STEAM-90K-ZZZ-333'),
+  ('120.000 Voucher', 'STEAM-120K-DDD-444'),
+  ('120.000 Voucher', 'STEAM-120K-EEE-555'),
+  ('250.000 Voucher', 'STEAM-250K-AAA-001'),
+  ('250.000 Voucher', 'STEAM-250K-BBB-002'),
+  ('250.000 Voucher', 'STEAM-250K-CCC-003'),
+  ('86 Diamonds', 'MLBB-86D-FFF-666'),
+  ('172 Diamonds', 'MLBB-172D-HHH-888')
+) AS t(variant_name, code)
+WHERE v.name = t.variant_name;

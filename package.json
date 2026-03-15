@@ -1,0 +1,25 @@
+{
+  "name": "wallet-be",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "^1.3.10"
+  },
+  "peerDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@hono/swagger-ui": "^0.6.1",
+    "@hono/zod-openapi": "^1.2.2",
+    "@scalar/hono-api-reference": "^0.10.3",
+    "@supabase/supabase-js": "^2.99.1",
+    "@types/pg": "^8.18.0",
+    "dotenv": "^17.3.1",
+    "hono": "^4.12.8",
+    "pg": "^8.20.0",
+    "zod": "^4.3.6"
+  }
+}

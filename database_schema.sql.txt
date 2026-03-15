@@ -1,0 +1,150 @@
+-- Wallet-app Database Schema (PostgreSQL)
+-- Optimized for Supabase
+
+-- DROP existing tables to start fresh (CASCADE handles dependencies)
+DROP TABLE IF EXISTS payments CASCADE;
+DROP TABLE IF EXISTS order_items CASCADE;
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS cart_items CASCADE;
+DROP TABLE IF EXISTS shopping_carts CASCADE;
+DROP TABLE IF EXISTS vouchers CASCADE;
+DROP TABLE IF EXISTS product_variants CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- Enable UUID extension if not enabled
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 1. Users table
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(255),
+    password_hash TEXT, -- Nullable for SSO users
+    provider VARCHAR(20) DEFAULT 'local', -- 'local', 'google'
+    provider_id VARCHAR(255),
+    role VARCHAR(20) DEFAULT 'user', -- 'user', 'admin'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Products table (Merged Categories/Products)
+CREATE TABLE products (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    image_url TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Product Variants (Denominations)
+CREATE TABLE product_variants (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    price DECIMAL(12,2) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Voucher Codes
+CREATE TABLE vouchers (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_variant_id UUID NOT NULL REFERENCES product_variants(id) ON DELETE CASCADE,
+    product_slug VARCHAR(255),
+    variant_name VARCHAR(255),
+    code TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'available', -- 'available', 'reserved', 'sold'
+    order_id UUID, -- Will be filled when sold/reserved
+    reserved_at TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5. Shopping Cart
+CREATE TABLE shopping_carts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. Cart Items
+CREATE TABLE cart_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    cart_id UUID NOT NULL REFERENCES shopping_carts(id) ON DELETE CASCADE,
+    product_variant_id UUID NOT NULL REFERENCES product_variants(id) ON DELETE CASCADE,
+    quantity INT NOT NULL DEFAULT 1,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 7. Orders
+CREATE TABLE orders (
+    id VARCHAR(50) PRIMARY KEY, -- ORD-YYYYMMDD-XXXX
+    user_id UUID NOT NULL REFERENCES users(id),
+    total_amount DECIMAL(12,2) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'paid', 'expired', 'failed', 'completed'
+    payment_method VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    finished_at TIMESTAMP WITH TIME ZONE
+);
+
+-- 8. Order Items
+CREATE TABLE order_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id VARCHAR(50) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_variant_id UUID NOT NULL REFERENCES product_variants(id),
+    product_name_snapshot VARCHAR(255),
+    variant_name_snapshot VARCHAR(255),
+    price_at_purchase DECIMAL(12,2) NOT NULL,
+    quantity INT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 9. Payments
+CREATE TABLE payments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id VARCHAR(50) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    gateway VARCHAR(50), -- e.g., 'midtrans', 'xendit'
+    gateway_transaction_id VARCHAR(255),
+    amount DECIMAL(12,2) NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for performance
+CREATE INDEX idx_products_slug ON products(slug);
+CREATE INDEX idx_vouchers_status ON vouchers(status);
+CREATE INDEX idx_vouchers_variant ON vouchers(product_variant_id);
+CREATE INDEX idx_orders_user ON orders(user_id);
+CREATE INDEX idx_payments_order ON payments(order_id);
+
+-- 10. Enable Row Level Security (RLS)
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_variants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vouchers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shopping_carts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cart_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+
+-- 11. Define Policies
+
+-- Public access to products and variants (for storefront)
+CREATE POLICY "Allow public read access to products" ON products FOR SELECT USING (is_active = true);
+CREATE POLICY "Allow public read access to product_variants" ON product_variants FOR SELECT USING (true);
+
+-- Users can only read/update their own profile
+CREATE POLICY "Users can view own profile" ON users FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON users FOR UPDATE USING (auth.uid() = id);
+
+-- Shopping Cart: User can only see/edit their own cart
+CREATE POLICY "Users can view own shopping cart" ON shopping_carts FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own shopping cart" ON shopping_carts FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Orders: Users can view their own orders
+CREATE POLICY "Users can view own orders" ON orders FOR SELECT USING (auth.uid() = user_id);
+
+-- Note: In a professional setup, you'd add more restrictive policies
+-- for Admin roles and Service Role bypass.
