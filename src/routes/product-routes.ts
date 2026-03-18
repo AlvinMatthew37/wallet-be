@@ -19,7 +19,7 @@ router.openapi(
         description: "Respond with a list of active products",
         content: {
           "application/json": {
-            schema: z.array(ProductWithVariantsSchema),
+            schema: z.array(ProductSchema),
           },
         },
       },

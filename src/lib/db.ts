@@ -1,7 +1,7 @@
 import { Pool } from "pg";
 import dotenv from "dotenv";
 
-dotenv.config();
+dotenv.config({ override: true });
 
 const env = process.env.PROJECT_ENVIRONMENT || "development";
 const connectionString = (env === "production" 

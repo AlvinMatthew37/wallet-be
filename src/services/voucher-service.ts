@@ -23,5 +23,28 @@ export class VoucherService {
       return c.json({ error: "Internal Server Error" }, 500);
     }
   };
+
+  createVoucher = async (c: Context) => {
+    try {
+      const body = await c.req.json();
+      
+      // Basic validation (more robust validation will be handled by OpenAPI/Zod in the route)
+      if (!body.product_variant_id || !body.code) {
+        return c.json({ error: "product_variant_id and code are required" }, 400);
+      }
+
+      const voucher = await this.voucherRepo.createVoucher(
+        body.product_variant_id,
+        body.code,
+        body.product_slug,
+        body.variant_name
+      );
+
+      return c.json(voucher, 201);
+    } catch (error) {
+      console.error("[VoucherService] Error in createVoucher:", error);
+      return c.json({ error: "Internal Server Error" }, 500);
+    }
+  };
 }
 

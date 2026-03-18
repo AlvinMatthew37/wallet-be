@@ -4,15 +4,14 @@ import type { Product, ProductWithVariants, ProductVariant } from "../types/mode
 export class ProductRepository {
   async getAll(onlyActive: boolean = true): Promise<ProductWithVariants[]> {
     const queryText = `
-      SELECT p.*, 
-             COALESCE(
-               json_agg(pv.*) FILTER (WHERE pv.id IS NOT NULL), 
-               '[]'
-             ) as variants
+      SELECT *, 
+        (
+          SELECT COALESCE(json_agg(pv.*), '[]')
+          FROM product_variants pv
+          WHERE pv.product_id = p.id
+        ) AS variants
       FROM products p
-      LEFT JOIN product_variants pv ON p.id = pv.product_id
       ${onlyActive ? 'WHERE p.is_active = true' : ''}
-      GROUP BY p.id
     `;
 
     const { rows } = await pool.query(queryText);
@@ -21,15 +20,14 @@ export class ProductRepository {
 
   async getBySlug(slug: string): Promise<ProductWithVariants | null> {
     const queryText = `
-      SELECT p.*, 
-             COALESCE(
-               json_agg(pv.*) FILTER (WHERE pv.id IS NOT NULL), 
-               '[]'
-             ) as variants
+      SELECT *,
+        (
+          SELECT COALESCE(json_agg(pv.*), '[]')
+          FROM product_variants pv
+          WHERE pv.product_id = p.id
+        ) AS variants
       FROM products p
-      LEFT JOIN product_variants pv ON p.id = pv.product_id
       WHERE p.slug = $1
-      GROUP BY p.id
     `;
 
     const { rows } = await pool.query(queryText, [slug]);

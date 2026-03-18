@@ -3,6 +3,7 @@ import { swaggerUI } from "@hono/swagger-ui";
 import { apiReference } from "@scalar/hono-api-reference";
 import productRoutes from "./routes/product-routes";
 import voucherRoutes from "./routes/voucher-routes";
+import authRoutes from "./routes/auth-routes";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
@@ -28,6 +29,7 @@ app.get("/ping", (c) => {
 // Mount Routes
 app.route("/products", productRoutes);
 app.route("/vouchers", voucherRoutes);
+app.route("/auth", authRoutes);
 
 // OpenAPI Documentation
 app.doc("/doc", {
